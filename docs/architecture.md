@@ -136,7 +136,7 @@ Illustrative shape; Phase 1 finalizes columns and indexes. All ids are text UUID
 Notes:
 - `sessions.profileSnapshot` decouples history from later profile edits/deletes (see [product-spec §4.2](product-spec.md)).
 - `session_messages` is the raw material for analysis and for chat reload; keep it append-only and ordered by `seq`. `seq` is the SSE resume cursor.
-- `pending_user_inputs` holds unresolved blocking prompts so a restarted browser can answer them. Status stays `running` on the session while rows are `pending`.
+Optional session status `awaiting_input` is **not** used: keep `running` plus `pending_user_inputs` rows so cancel/PR logic stays simple.
 
 ## 4. API surface (REST + SSE)
 
