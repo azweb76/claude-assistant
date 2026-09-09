@@ -44,6 +44,7 @@ Run from the repo root. These are the contracts every phase must keep working (i
 | `pnpm --filter @claude-assistant/server dev` | Run only the backend. |
 | `pnpm --filter @claude-assistant/web dev` | Run only the frontend. |
 | `pnpm test` | Run the full Vitest suite across workspaces. |
+| `pnpm test:e2e` | Run the network-free API happy-path e2e suite. |
 | `pnpm --filter <pkg> test` | Run tests for one workspace. |
 | `pnpm lint` | ESLint + Prettier check. |
 | `pnpm typecheck` | `tsc --noEmit` across workspaces. |

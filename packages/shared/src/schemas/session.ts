@@ -14,7 +14,7 @@ export const sessionCreateSchema = z.object({
   profileId: z.string().uuid(),
   profileSnapshot: agentProfileSchema.or(z.record(z.unknown())),
   prompt: z.string().min(1),
-  status: sessionStatusSchema.optional().default('pending'),
+  status: sessionStatusSchema.default('pending'),
 });
 
 export const sessionSchema = sessionCreateSchema.extend({

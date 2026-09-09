@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "pnpm --filter @claude-assistant/shared build && pnpm -r --parallel --filter @claude-assistant/server --filter @claude-assistant/web run dev",
     "test": "pnpm --filter @claude-assistant/shared build && pnpm -r run test",
+    "test:e2e": "pnpm --filter @claude-assistant/shared build && vitest run --config e2e/vitest.config.ts",
     "lint": "eslint . && prettier --check .",
     "typecheck": "pnpm --filter @claude-assistant/shared build && pnpm -r run typecheck",
     "build": "pnpm -r run build",
@@ -24,7 +25,8 @@
     "globals": "^16.0.0",
     "prettier": "^3.5.3",
     "typescript": "^5.8.2",
-    "typescript-eslint": "^8.26.1"
+    "typescript-eslint": "^8.26.1",
+    "vitest": "^3.0.9"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

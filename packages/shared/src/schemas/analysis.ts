@@ -17,7 +17,7 @@ export const analysisCreateSchema = z.object({
   sessionIds: z.array(z.string().uuid()).min(1),
   model: z.string().min(1),
   effort: effortSchema,
-  status: analysisStatusSchema.optional().default('pending'),
+  status: analysisStatusSchema.default('pending'),
   summary: z.string().nullable().optional(),
 });
 
@@ -37,7 +37,7 @@ export const stagedImprovementBaseSchema = z.object({
   currentContent: z.string(),
   proposedContent: z.string(),
   diff: z.string(),
-  status: improvementStatusSchema.optional().default('staged'),
+  status: improvementStatusSchema.default('staged'),
 });
 
 export const stagedImprovementCreateSchema = stagedImprovementBaseSchema.superRefine(

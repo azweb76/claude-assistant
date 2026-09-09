@@ -78,6 +78,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await registerWorkspaceRoutes(app);
   await registerProfileRoutes(app);
   await registerSessionRoutes(app);
+  const { registerAnalysisRoutes } = await import('./routes/analyses.js');
+  await registerAnalysisRoutes(app);
 
   return app;
 }

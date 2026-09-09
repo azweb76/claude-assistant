@@ -17,7 +17,7 @@ export const agentProfileCreateSchema = z.object({
   maxTurns: z.number().int().positive().nullable().optional(),
   maxBudgetUsd: z.number().positive().nullable().optional(),
   extraSystemPrompt: z.string().nullable().optional(),
-  isBuiltIn: z.boolean().optional().default(false),
+  isBuiltIn: z.boolean().default(false),
 });
 
 export const agentProfileSchema = agentProfileCreateSchema.extend({
