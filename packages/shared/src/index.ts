@@ -4,3 +4,4 @@ export * from './schemas/agentProfile.js';
 export * from './schemas/session.js';
 export * from './schemas/analysis.js';
 export * from './schemas/appSettings.js';
+export * from './schemas/streamEvents.js';
