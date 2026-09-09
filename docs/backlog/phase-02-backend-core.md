@@ -35,9 +35,9 @@ Reference: API surface in [`../architecture.md`](../architecture.md#4-api-surfac
 - **Goal:** A reusable SSE helper for streaming session/analysis progress.
 - **Depends on:** P2-T1.
 - **Files:** `apps/server/src/lib/sse.ts`, `packages/shared/src/schemas/streamEvents.ts`, tests.
-- **Implementation notes:** Helper sets SSE headers, serializes `event`/`data`, sends periodic heartbeats, and cleans up on client disconnect. Define shared event types (`message`, `usage`, `status`, `error`) and their payload schemas. Provide a way to bridge an async iterable/emitter to the SSE response.
-- **Acceptance criteria:** A test route streams a sequence of typed events that a client reads in order and terminates cleanly; disconnect stops the stream.
-- **Test requirements:** Vitest test driving an SSE route via inject/stream and asserting event order and termination.
+- **Implementation notes:** Helper sets SSE headers, serializes `event`/`data`, sends periodic heartbeats, and cleans up on client disconnect. Define shared event types (`message`, `usage`, `status`, `error`, `user_input_request`, `user_input_resolved`, `control`) and their payload schemas in `packages/shared`. Set SSE `id` to the transcript `seq` so clients can resume with `Last-Event-ID` / `afterSeq`. Provide a way to bridge an async iterable/emitter to the SSE response. On a new subscriber, the session stream (Phase 4) re-emits all still-pending `user_input_request`s.
+- **Acceptance criteria:** A test route streams a sequence of typed events that a client reads in order and terminates cleanly; disconnect stops the stream; event ids are present for resume.
+- **Test requirements:** Vitest test driving an SSE route via inject/stream and asserting event order, event ids, and termination.
 - **Done definition:** Tests green; event schemas exported from shared.
 
 ## P2-T4 — Settings endpoints

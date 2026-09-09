@@ -21,9 +21,17 @@ claude-assistant is a local-first, single-user web app that uses the Claude Agen
 
 ## SDK reminders
 
-- Use `query({ prompt, options })` from `@anthropic-ai/claude-agent-sdk`; iterate its async message stream and persist each message.
-- Map agent profiles to `Options` (`model`, `effort`, `permissionMode`, `allowedTools`/`disallowedTools`, `skills`, `agents`, `cwd`, `maxTurns`, `maxBudgetUsd`).
+- Session chat implements **all** of [`docs/chat-feature-catalog.md`](docs/chat-feature-catalog.md) (every `SDKMessage`, tool card, Query control, blocking prompt). Permissions and AskUserQuestion are included, not the ceiling.
+- Use streaming-input `query({ prompt, options })` from `@anthropic-ai/claude-agent-sdk`; persist each message; keep `Query` for interrupt/controls; `canUseTool` must wait on the user and survive browser reload via `pending_user_inputs`.
+- Map agent profiles to `Options` (`model`, `effort`, `permissionMode`, `allowedTools`/`disallowedTools`, `skills`, `agents`, `cwd`, `maxTurns`, `maxBudgetUsd`) plus chat flags (`includePartialMessages`, `forwardSubagentText`, checkpointing, AskUserQuestion previews).
 - Persist `session_id`, token usage, and `total_cost_usd`; these feed the analysis engine.
+
+## Pointers
+
+- Product scope and flows: [`docs/product-spec.md`](docs/product-spec.md)
+- Chat catalog (binding): [`docs/chat-feature-catalog.md`](docs/chat-feature-catalog.md)
+- System design and data model: [`docs/architecture.md`](docs/architecture.md)
+- Settled decisions (ADRs): [`docs/decisions.md`](docs/decisions.md)
 
 ## Pointers
 

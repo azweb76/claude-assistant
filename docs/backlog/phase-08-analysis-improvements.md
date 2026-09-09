@@ -73,7 +73,7 @@ Reference: analysis/staging engine in [`../architecture.md`](../architecture.md#
 ## P8-T7 — Analysis UI (trigger + review diffs)
 
 - **Goal:** Trigger analysis from selected sessions and review/apply/discard staged improvements.
-- **Depends on:** P8-T6; Phase 7 P7-T4; Phase 5 P5-T4.
+- **Depends on:** P8-T6; Phase 7 P7-T9; Phase 5 P5-T4.
 - **Files:** `apps/web/src/routes/AnalysisPage.tsx`, `apps/web/src/components/analysis/ImprovementCard.tsx`, `apps/web/src/components/analysis/DiffView.tsx`, tests.
 - **Implementation notes:** "Analyze selected" on the sessions list starts an analysis and opens the analysis view, streaming progress. Results are grouped by category and scope, each rendered as a diff with clear scope/target labels and Apply/Discard actions. Reflect applied/discarded state; show empty state when no improvements are found.
 - **Acceptance criteria:** Selecting sessions and analyzing shows grouped staged improvements as diffs with correct scope/target labels; apply/discard update state; empty state handled.

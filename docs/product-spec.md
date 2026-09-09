@@ -23,7 +23,8 @@ The product has two loops:
 | **Workspace** | A GitHub repository the user wants agents to work in. Cloned locally to a managed directory. Owns default branch info and local clone path. |
 | **Agent Profile** | A reusable, named bundle of Claude Agent SDK settings: model, effort, permission mode, authorized (allowed/disallowed) tools, enabled skills/subagents, and limits (`maxTurns`, `maxBudgetUsd`). Managed independently and reused across sessions. |
 | **Session** | One agent run: a prompt executed against a workspace using an agent profile. Owns status, the streamed transcript, token/cost usage, the created branch, and the resulting PR link. |
-| **Session Message** | A single persisted event from the SDK stream (assistant text, tool use, tool result, system, result). Append-only; the transcript of a session. |
+| **Session Message** | A single persisted event from the SDK stream (every `SDKMessage` in the [chat catalog](chat-feature-catalog.md)). Append-only; the transcript of a session. |
+| **Pending user input** | A blocking SDK prompt (`canUseTool` permission, AskUserQuestion, MCP elicitation, plan-exit, role picker) waiting for the user. Survives browser restart. |
 | **Analysis** | The result of analyzing one or more selected sessions for waste/inefficiency. Owns a summary and a set of findings. |
 | **Staged Improvement** | A concrete, reviewable proposed edit produced by an analysis, targeting a specific file at a specific scope (user or project), in one of three categories. Has a lifecycle: staged → applied or discarded. |
 | **App Settings** | Global configuration: managed clone directory, default agent profile, Claude Code `settingSources` defaults, analysis model/effort, etc. |
@@ -51,27 +52,37 @@ flowchart LR
 - Deleting a profile that is referenced by historical sessions must preserve those sessions' recorded settings (sessions snapshot the profile values used at run time).
 - Ships with sensible built-in default profiles (e.g. a conservative "plan-first" profile and a "build + PR" profile).
 
-### 4.3 Create and run a session
+### 4.3 Create and run a session (interactive chat)
+
+The session UI is a **reusable chat component** that supports the full Claude Agent SDK surface defined in [`chat-feature-catalog.md`](chat-feature-catalog.md). Permissions and `AskUserQuestion` are required, but they are not the whole product: every `SDKMessage`, built-in tool card, Query control, slash command, attachment, MCP elicitation, plan/worktree/task UI, and reload/reconnect path in that catalog is in scope.
 
 ```mermaid
 flowchart TD
-  a[User selects workspace + agent profile] --> b[User writes prompt]
+  a[User selects workspace + agent profile] --> b[User writes prompt plus optional attachments]
   b --> c[App snapshots profile settings into the session]
   c --> d[Runner creates/checkout a fresh branch in the clone]
-  d --> e["Runner calls query prompt, options mapped from profile"]
-  e --> f[Stream messages to UI via SSE + persist each message]
-  f --> g{Run outcome}
-  g -->|"success + changes"| h["Commit, push, open PR via gh"]
-  g -->|"no changes / error / canceled"| i["Record final status, no PR"]
-  h --> j["Session shows PR link, cost, token usage"]
-  i --> j
+  d --> e["Runner starts streaming-input query mapped from profile"]
+  e --> f[Persist every SDK message and SSE to the chat]
+  f --> g{Needs user input?}
+  g -->|permission / questions / elicitation / plan exit| h[Chat shows all pending prompts]
+  h --> i[User answers; canUseTool / elicitation resolves]
+  i --> f
+  g -->|still running| f
+  f --> j{Run outcome}
+  j -->|"success + changes"| k["Commit, push, open PR via gh"]
+  j -->|"no changes / error / canceled"| l["Record final status, no PR"]
+  k --> m[Session shows PR link, cost, token usage]
+  l --> m
 ```
 
-- The prompt and profile are required; the workspace determines `cwd`.
-- The run streams live: assistant messages, tool calls, and tool results appear as they happen, along with running token/cost totals.
-- The user can cancel a running session.
+- The prompt and profile are required; the workspace determines `cwd`. Optional attachments (files/images) are part of the first user turn.
+- The runner uses **streaming input** so the user can send follow-ups, slash commands, interrupt, change model/permission mode, and attach files without waiting for a terminal result.
+- The chat streams live: every catalog message type, tool card, thinking, subagent threads, tasks, usage/cost, and system banners.
+- Blocking prompts (`canUseTool` permissions, multi-question `AskUserQuestion`, MCP elicitation, `ExitPlanMode`, role picker) pause the agent until the user replies. **Multiple** prompts can be outstanding; a single `AskUserQuestion` may contain many questions, all of which must be answered together.
+- **Browser restart** mid-run restores the transcript and any unresolved prompts from the server, then resumes the SSE stream from the last sequence number. The agent process is assumed still running.
+- The user can cancel/interrupt a running session.
 - On success with file changes, the runner commits, pushes a branch, and opens a PR using `gh`. The PR URL is stored on the session.
-- Sessions are resumable via the SDK `session_id`/`resume` where applicable (follow-up prompt in the same session).
+- Sessions are resumable via SDK `session_id` / `resume` / fork. File checkpoint rewind is available when checkpointing is enabled.
 
 ### 4.4 Analyze sessions and stage improvements
 
@@ -115,7 +126,7 @@ All agent behavior is configurable. Nothing about the agent run is hard-coded th
 
 ## 7. Success criteria for the product
 
-- A user can add a repo, create a profile, run a session, and receive a real PR — entirely from the UI, with live streaming.
+- A user can add a repo, create a profile, run a session in the reusable chat (full catalog: tools, permissions, multi-question AskUserQuestion, MCP, plan mode, slash commands, attachments), survive a browser reload mid-run, and receive a real PR.
 - A user can select past sessions, run an analysis, and review categorized, correctly-scoped staged improvements as diffs, then apply or discard each.
 - Light and dark themes both look correct and are toggleable.
 - All logic is covered by Vitest; UI flows are verified in the running app.
