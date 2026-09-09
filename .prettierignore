@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+coverage
+pnpm-lock.yaml
+*.db
+*.sqlite
+docs
+*.md
+.github
