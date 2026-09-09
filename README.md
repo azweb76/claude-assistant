@@ -5,9 +5,12 @@ A local-first web application that uses the [Claude Agent SDK](https://code.clau
 ## What it does
 
 1. **Add a workspace** — point the app at a GitHub repository. The repo is cloned locally using your existing `git`/`gh` credentials.
-2. **Create an agent profile** — a reusable, fully configurable bundle of Claude Agent SDK settings (model, effort, permission mode, authorized tools, skills, limits).
-3. **Start a session** — provide a prompt plus a workspace and an agent profile. The SDK runs against the clone, streams progress to the UI, and opens a PR when done.
-4. **Analyze and improve** — select sessions, run analysis, and review **staged** improvements (instructions / project skills / user skills) as diffs you apply or discard.
+2. **Create an agent profile** — a reusable, fully configurable bundle of Claude Agent SDK settings (model, effort, permission mode, authorized tools, skills, limits). Profiles are managed independently of sessions.
+3. **Start a session** — provide a prompt plus a workspace and an agent profile. The reusable chat drives the full Claude Agent SDK surface (streaming, tools, permissions, AskUserQuestion, MCP, plan mode, slash commands, attachments, reload). On success the runner opens a PR.
+4. **Analyze and improve** — from the sessions list, select one or more sessions and run an analysis pass. The engine reviews the transcripts for waste and inefficiency and produces **staged** (reviewable, not-yet-applied) improvements to:
+   - Claude instructions (`CLAUDE.md`),
+   - project skills/agents (only when the improvement is specific to that project, written to the repo's `.claude/`),
+   - user skills/agents (generic capabilities like plan/implement/code-review, written to user scope `~/.claude/`).
 
 ## Core principles
 
@@ -50,11 +53,13 @@ Open http://127.0.0.1:5173 — use Workspaces → Profiles → New session → S
 
 | Document | Purpose |
 | --- | --- |
-| [`AGENTS.md`](AGENTS.md) | How AI agents build, test, and contribute |
-| [`docs/product-spec.md`](docs/product-spec.md) | Features and user flows |
-| [`docs/architecture.md`](docs/architecture.md) | System design and API surface |
-| [`docs/decisions.md`](docs/decisions.md) | ADRs |
-| [`docs/backlog/`](docs/backlog/) | Phased implementation backlog |
+| [`AGENTS.md`](AGENTS.md) | How AI agents (and humans) build, test, and contribute; conventions and canonical commands. |
+| [`docs/product-spec.md`](docs/product-spec.md) | Features, user flows, entities, and non-goals. |
+| [`docs/chat-feature-catalog.md`](docs/chat-feature-catalog.md) | Binding list of every SDK message, tool, control, and interrupt the session chat must support. |
+| [`docs/architecture.md`](docs/architecture.md) | System design, monorepo layout, data model, API/SSE surface, agent runner, analysis/staging design. |
+| [`docs/decisions.md`](docs/decisions.md) | Architecture decision records (ADRs) for the choices that shape the project. |
+| [`docs/backlog/README.md`](docs/backlog/README.md) | Backlog overview: task schema, phase index, and dependency graph. |
+| [`docs/backlog/`](docs/backlog/) | One file per phase, each with granular, independently implementable tasks. |
 
 ## Improvement loop
 

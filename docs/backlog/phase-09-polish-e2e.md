@@ -13,7 +13,7 @@
 - **Goal:** Consistent UX for the not-happy paths across all pages.
 - **Depends on:** —
 - **Files:** `apps/web/src/components/common/*` (e.g. `EmptyState`, `ErrorState`, `Loading`), page updates, tests.
-- **Implementation notes:** Add reusable components and apply them to Workspaces, Profiles, Sessions, Session Run/Detail, Analysis, and Settings. Ensure backend errors render as friendly messages via the typed client.
+- **Implementation notes:** Add reusable components and apply them to Workspaces, Profiles, Sessions, Session Chat, Analysis, and Settings. Ensure backend errors render as friendly messages via the typed client. Chat empty/error/loading must not replace catalog renderers for real messages.
 - **Acceptance criteria:** Each listed page shows appropriate empty/loading/error UI; no unhandled promise rejections or raw error dumps.
 - **Test requirements:** Vitest + Testing Library tests for empty and error rendering on at least the Sessions and Analysis pages.
 - **Done definition:** Tests green; manual pass across pages.
@@ -33,8 +33,8 @@
 - **Goal:** One automated e2e proving the primary flow with external services faked.
 - **Depends on:** P9-T1.
 - **Files:** `e2e/` (Playwright or equivalent), config, CI wiring.
-- **Implementation notes:** Boot the server with a fake SDK client and a fake git/gh executor, plus a temp SQLite DB, and run the web app. Script: add workspace → create profile → run session (streamed, produces a fake PR URL) → open sessions list → analyze the session → review staged improvements → apply one and discard another. No real network/GitHub/Anthropic calls.
-- **Acceptance criteria:** The e2e runs headless in CI against faked externals and asserts the key outcomes at each step.
+- **Implementation notes:** Boot the server with a fake SDK client and a fake git/gh executor, plus a temp SQLite DB, and run the web app. Script: add workspace → create profile → run session in chat (streamed catalog messages, a permission prompt, a two-question AskUserQuestion, simulated reload/reconnect, then a fake PR URL) → open sessions list → analyze the session → review staged improvements → apply one and discard another. No real network/GitHub/Anthropic calls.
+- **Acceptance criteria:** The e2e runs headless in CI against faked externals and asserts the key outcomes at each step, including permission + multi-question answers + post-reload continuation.
 - **Test requirements:** The e2e itself; it must be deterministic and network-free.
 - **Done definition:** e2e green locally and in CI.
 

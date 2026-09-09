@@ -9,7 +9,7 @@ flowchart LR
   subgraph web [Web UI - Vite + React + MUI v9]
     workspacesUI[Workspaces]
     profilesUI[Agent Profiles]
-    sessionsUI[Sessions + Live Run]
+    sessionsUI[Sessions + reusable Chat]
     analysisUI[Analysis + Staged Improvements]
     settingsUI[Settings]
   end
@@ -44,7 +44,7 @@ flowchart LR
   dal --> db
 ```
 
-- The **web UI** is a pure client: it talks to the backend over HTTP and consumes SSE for live session/analysis streams.
+- The **web UI** is a pure client: it talks to the backend over HTTP and consumes SSE for live session/analysis streams. Session UX is one reusable chat component that implements [`chat-feature-catalog.md`](chat-feature-catalog.md).
 - The **backend** owns everything privileged: spawning the SDK, running `git`/`gh`, reading/writing `.claude` files, and persistence.
 - **SQLite** holds structured state; the **filesystem** holds clones and the `.claude` instruction/skill files.
 
@@ -73,6 +73,7 @@ claude-assistant/
 │       │   ├── api/                # typed client + SSE hooks
 │       │   ├── routes/             # pages
 │       │   └── components/
+│       │       └── chat/           # reusable session chat (catalog)
 │       └── vitest.config.ts
 ├── packages/
 │   └── shared/                     # zod schemas + inferred types + constants
@@ -108,8 +109,12 @@ Illustrative shape; Phase 1 finalizes columns and indexes. All ids are text UUID
   inputTokens, outputTokens, totalCostUsd, numTurns,
   startedAt, endedAt, createdAt }
 
-// session_messages  (append-only transcript)
+// session_messages  (append-only transcript of every SDKMessage except replaceable stream_event partials)
 { id, sessionId, seq, type, subtype, payload: json, tokens: json|null, createdAt }
+
+// pending_user_inputs  (blocking canUseTool / elicitation / plan-exit / role-picker)
+{ id, sessionId, requestId, toolUseId, kind, toolName, payload: json,
+  status, /* pending|resolved|canceled */ createdAt, resolvedAt }
 
 // analyses
 { id, status, model, effort, summary, sessionIds: json<string[]>, createdAt, endedAt }
@@ -130,7 +135,8 @@ Illustrative shape; Phase 1 finalizes columns and indexes. All ids are text UUID
 
 Notes:
 - `sessions.profileSnapshot` decouples history from later profile edits/deletes (see [product-spec §4.2](product-spec.md)).
-- `session_messages` is the raw material for analysis; keep it append-only and ordered by `seq`.
+- `session_messages` is the raw material for analysis and for chat reload; keep it append-only and ordered by `seq`. `seq` is the SSE resume cursor.
+Optional session status `awaiting_input` is **not** used: keep `running` plus `pending_user_inputs` rows so cancel/PR logic stays simple.
 
 ## 4. API surface (REST + SSE)
 
@@ -143,10 +149,13 @@ REST is JSON; validated with shared zod schemas. Long-running operations stream 
 | GET/POST | `/api/profiles` | List / create agent profiles. |
 | GET/PUT/DELETE | `/api/profiles/:id` | Get / update / delete a profile. |
 | GET/POST | `/api/sessions` | List / create (and start) sessions. |
-| GET | `/api/sessions/:id` | Session detail + transcript. |
-| GET | `/api/sessions/:id/stream` | **SSE** live transcript + usage while running. |
-| POST | `/api/sessions/:id/cancel` | Cancel a running session. |
-| POST | `/api/sessions/:id/messages` | Follow-up prompt (resume). |
+| GET | `/api/sessions/:id` | Session detail + transcript + pending user inputs + control snapshot (commands, MCP, tasks). |
+| GET | `/api/sessions/:id/stream` | **SSE** live catalog events while running; resume via `Last-Event-ID` / `afterSeq`. |
+| POST | `/api/sessions/:id/cancel` | Cancel a running session (`close` / abort). |
+| POST | `/api/sessions/:id/messages` | Follow-up user turn (text, attachments, slash command) on the streaming input. |
+| POST | `/api/sessions/:id/user-input` | Resolve a pending permission / AskUserQuestion / elicitation / plan-exit / role-picker (`requestId`). |
+| POST | `/api/sessions/:id/interrupt` | `Query.interrupt()`. |
+| POST | `/api/sessions/:id/controls` | Mid-session `setPermissionMode`, `setModel`, `applyFlagSettings`, `rewindFiles`, `stopTask`, MCP connect/toggle/replace. |
 | POST | `/api/analyses` | Create an analysis over selected `sessionIds`. |
 | GET | `/api/analyses/:id` | Analysis detail + staged improvements. |
 | GET | `/api/analyses/:id/stream` | **SSE** live analysis progress. |
@@ -155,11 +164,11 @@ REST is JSON; validated with shared zod schemas. Long-running operations stream 
 | GET/PUT | `/api/settings` | Read / update app settings. |
 | GET | `/api/health` | Liveness. |
 
-SSE event shape (illustrative): `event: message | usage | status | error`, `data: <json>`. The web client has a reusable `useEventStream` hook.
+SSE event shape: `event: message | usage | status | error | user_input_request | user_input_resolved | control`, `data: <json>`, `id: <seq>`. The web client has a reusable `useEventStream` hook that hydrates from REST then tails SSE. `user_input_request` is re-emitted for every still-pending row on subscribe.
 
 ## 5. Agent runner
 
-Responsibilities: translate an agent profile into SDK `Options`, run `query()`, persist and stream the message flow, and drive the PR at the end.
+Responsibilities: translate an agent profile into SDK `Options`, run streaming-input `query()`, persist and stream the full [`chat-feature-catalog.md`](chat-feature-catalog.md) message flow, bridge `canUseTool` / elicitation to HTTP+SSE, expose `Query` controls, and drive the PR at the end.
 
 ```mermaid
 sequenceDiagram
@@ -171,14 +180,19 @@ sequenceDiagram
   API->>Runner: start(session)
   Runner->>Git: ensure clean clone, create branch
   Runner->>DB: session.status = running
-  Runner->>SDK: query({ prompt, options })
-  loop each message
-    SDK-->>Runner: message (assistant/tool_use/tool_result/result)
-    Runner->>DB: append session_message
-    Runner-->>API: SSE message + usage
+  Runner->>SDK: query streaming input plus canUseTool
+  loop each SDKMessage
+    SDK-->>Runner: catalog message
+    Runner->>DB: append session_message seq
+    Runner-->>API: SSE message plus usage
   end
-  SDK-->>Runner: result (session_id, cost, tokens)
-  Runner->>Git: commit + push + gh pr create
+  SDK-->>Runner: canUseTool or elicitation
+  Runner->>DB: pending_user_inputs
+  Runner-->>API: SSE user_input_request
+  API->>Runner: POST user-input
+  Runner->>SDK: PermissionResult
+  SDK-->>Runner: result session_id cost tokens
+  Runner->>Git: commit plus push plus gh pr create
   Git-->>Runner: prUrl
   Runner->>DB: session.status = succeeded, prUrl, usage
   Runner-->>API: SSE status=done
@@ -191,7 +205,7 @@ Profile → `Options` mapping (see [SDK reference](https://code.claude.com/docs/
 | `model` | `model` |
 | `effort` | `effort` (`low|medium|high|xhigh|max`) |
 | `permissionMode` | `permissionMode` (`default|acceptEdits|bypassPermissions|plan`) |
-| `allowedTools` / `disallowedTools` | `allowedTools` / `disallowedTools` |
+| `allowedTools` / `disallowedTools` | `allowedTools` / `disallowedTools` (never drop `AskUserQuestion` / `Skill` / `Agent` when those features are on) |
 | `skills` | `skills` |
 | `agents` | `agents` |
 | `settingSources` | `settingSources` (include `'user'` for auth+user skills, `'project'` for repo `.claude`) |
@@ -199,9 +213,12 @@ Profile → `Options` mapping (see [SDK reference](https://code.claude.com/docs/
 | workspace clone path | `cwd` |
 | `extraSystemPrompt` | appended `systemPrompt` |
 
+Always-on runner options for chat (not silent profile defaults for permissions): `includePartialMessages: true`, `forwardSubagentText: true`, `enableFileCheckpointing: true`, `canUseTool` wired to the pending-input bridge, `toolConfig.askUserQuestion.previewFormat` set so option previews exist.
+
 Constraints:
 - `bypassPermissions` requires `allowDangerouslySkipPermissions: true` and is gated by an app setting; it is never a silent default.
-- The SDK is mocked in tests — the runner must accept an injectable `query` implementation.
+- The SDK is mocked in tests — the runner must accept an injectable `query` implementation whose fake **blocks** on `canUseTool` / elicitation until the test resolves the `requestId`.
+- Mid-session controls (`interrupt`, `setPermissionMode`, `setModel`, `applyFlagSettings`, `rewindFiles`, `stopTask`, MCP) are invoked on the live `Query` object held in the run registry.
 
 ## 6. Git + GitHub service
 
@@ -249,3 +266,9 @@ flowchart TD
 - **Errors:** typed errors mapped to structured HTTP responses; SSE `error` events for stream failures.
 - **Concurrency:** single-user, but multiple sessions may run; each session uses its own branch and the runner serializes writes per workspace clone.
 - **Observability:** structured logs on the server; the transcript itself is the primary audit trail.
+
+## 11. Reusable chat component
+
+Path: `apps/web/src/components/chat/`. Used by the live session page and the historical session page (read-only when the run is not live). Implements every row of [`chat-feature-catalog.md`](chat-feature-catalog.md).
+
+Hydration: REST transcript + pendings + control snapshot, then SSE from last `seq`. Remount after a browser restart must restore the same visible messages and the same unanswered prompts.

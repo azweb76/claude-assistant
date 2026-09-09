@@ -1,12 +1,12 @@
 # Phase 5 — Frontend foundation (MUI v9)
 
-**Theme:** Build the web app shell: MUI v9 theme with light/dark, routing, layout, a typed API client, an SSE hook, and the Settings page.
+**Theme:** Build the web app shell: MUI v9 theme with light/dark, routing, layout, a typed API client, an SSE hook that hydrates and reconnects, and the Settings page.
 
 **Depends on:** Phase 2 (settings endpoints + SSE contract). Can proceed in parallel with Phases 3–4.
 
-**Exit criteria:** The app renders an app shell with navigation, supports a working light/dark toggle, has a typed API client and reusable SSE hook, and the Settings page reads/writes settings against the backend.
+**Exit criteria:** The app renders an app shell with navigation, supports a working light/dark toggle, has a typed API client and reusable SSE hook (hydrate + `afterSeq` reconnect + pending-input replay), and the Settings page reads/writes settings against the backend.
 
-Reference: ADR-0007 in [`../decisions.md`](../decisions.md#adr-0007--frontend-vite--react--mui-v9-with-css-theme-variables).
+Reference: ADR-0007 in [`../decisions.md`](../decisions.md#adr-0007--frontend-vite--react--mui-v9-with-css-theme-variables) and ADR-0011.
 
 ---
 
@@ -35,19 +35,19 @@ Reference: ADR-0007 in [`../decisions.md`](../decisions.md#adr-0007--frontend-vi
 - **Goal:** A typed fetch client sharing schemas/types with the backend.
 - **Depends on:** —
 - **Files:** `apps/web/src/api/client.ts`, `apps/web/src/api/endpoints.ts`, tests.
-- **Implementation notes:** Thin wrapper over `fetch` that parses responses with shared zod schemas from `@claude-assistant/shared` and throws typed errors mapped from the backend error shape. Base URL uses the Vite `/api` proxy. Consider TanStack Query for caching (optional; if used, wire the provider here).
+- **Implementation notes:** Thin wrapper over `fetch` that parses responses with shared zod schemas from `@claude-assistant/shared` and throws typed errors mapped from the backend error shape. Base URL uses the Vite `/api` proxy. Consider TanStack Query for caching (optional; if used, wire the provider here). Include session user-input, interrupt, and controls helpers (may 404 until Phase 4 exists; types live in shared).
 - **Acceptance criteria:** Client returns typed data on success and throws typed errors on the backend error shape; responses validated against shared schemas.
 - **Test requirements:** Vitest tests with a mocked fetch: success parse, error mapping, schema-validation failure.
 - **Done definition:** Tests green.
 
-## P5-T4 — SSE/event-stream hook
+## P5-T4 — SSE/event-stream hook (hydrate + reconnect)
 
-- **Goal:** A reusable hook to consume backend SSE streams.
+- **Goal:** A reusable hook to consume backend SSE streams **after** REST hydration, including browser restart.
 - **Depends on:** P5-T3; Phase 2 P2-T3.
 - **Files:** `apps/web/src/api/useEventStream.ts`, tests.
-- **Implementation notes:** `useEventStream(url)` opens an `EventSource`, parses typed events (`message`/`usage`/`status`/`error`) with shared schemas, exposes accumulated state + status, and cleans up on unmount. Handle reconnect/termination.
-- **Acceptance criteria:** Hook accumulates ordered events, exposes terminal status, and tears down the connection on unmount.
-- **Test requirements:** Vitest test with a mocked `EventSource` feeding a scripted sequence; assert accumulation, terminal status, and cleanup.
+- **Implementation notes:** Accept `{ url, lastSeq, onEvent }`. Open `EventSource` with `afterSeq` / `Last-Event-ID`. Parse typed events (`message`/`usage`/`status`/`error`/`user_input_request`/`user_input_resolved`/`control`) with shared schemas. Ignore duplicate `seq`. Merge pending `user_input_request`s (keyed by `requestId`). Reconnect on drop without resetting accumulated durable messages. Tear down on unmount.
+- **Acceptance criteria:** Hook accumulates ordered events, dedupes seq, restores pendings on replay, exposes terminal status, cleans up on unmount, reconnects from last seq.
+- **Test requirements:** Vitest with mocked `EventSource`: scripted sequence; duplicate seq ignored; pending replay merged; reconnect continues from lastSeq; cleanup.
 - **Done definition:** Tests green.
 
 ## P5-T5 — Settings page
