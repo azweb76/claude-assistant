@@ -55,7 +55,7 @@ If you add a new required check, document it here in the same commit.
 ## Testing expectations
 
 - **Framework:** Vitest for unit and integration tests across all workspaces.
-- **Unit tests** are required for pure logic: data-access repositories, profile→SDK option mapping, transcript parsing, analysis heuristics, scope routing.
+- **Unit tests** are required for pure logic: data-access repositories, profile→SDK option mapping, transcript parsing, chat catalog completeness, analysis heuristics, scope routing.
 - **Integration tests** cover API routes (Fastify inject), git/gh wrappers (against a temporary sandbox repo or mocked child process), and DB migrations.
 - **External services are never hit in tests.** Mock the Claude Agent SDK and `gh`/`git`; use a fresh temp SQLite DB per test file.
 - **Manual/e2e** verification for UI-affecting work: run `pnpm dev`, exercise the flow, and capture evidence. Phase 9 adds an automated happy-path e2e.
@@ -72,10 +72,12 @@ If you add a new required check, document it here in the same commit.
 
 ## Claude Agent SDK integration notes
 
-- Entry point is `query({ prompt, options })` from `@anthropic-ai/claude-agent-sdk`; it returns an async iterable of typed messages. Iterate and persist each message.
-- Agent-profile fields map onto `Options`: `model`, `effort` (`low|medium|high|xhigh|max`), `permissionMode` (`default|acceptEdits|bypassPermissions|plan`), `allowedTools`/`disallowedTools`, `skills`, `agents`, `cwd` (the cloned workspace path), `maxTurns`, `maxBudgetUsd`.
+- Session chat is the full SDK surface. Implement every row of [`docs/chat-feature-catalog.md`](docs/chat-feature-catalog.md) — not a subset of “text + tools + permissions.”
+- Entry point is `query({ prompt, options })` from `@anthropic-ai/claude-agent-sdk` in **streaming-input** mode; iterate the async message stream, persist each `SDKMessage`, and keep the `Query` object for `interrupt`, `setPermissionMode`, `setModel`, `applyFlagSettings`, `rewindFiles`, `stopTask`, MCP, and `streamInput`.
+- Wire `canUseTool`. It must **await** the user’s HTTP reply for permissions, `AskUserQuestion` (all questions in the array), and other `requiresUserInteraction` tools. MCP elicitation is a separate blocking path. Persist pending rows so a browser restart can answer them. After an SSE/transport gap, `reinitialize()` so outstanding permission requests are redelivered; handle `requestId`s idempotently.
+- Agent-profile fields map onto `Options`: `model`, `effort` (`low|medium|high|xhigh|max`), `permissionMode` (`default|acceptEdits|bypassPermissions|plan`), `allowedTools`/`disallowedTools`, `skills`, `agents`, `cwd` (the cloned workspace path), `maxTurns`, `maxBudgetUsd`. Chat also sets `includePartialMessages`, `forwardSubagentText`, `enableFileCheckpointing`, and `toolConfig.askUserQuestion.previewFormat`. Restricted tool lists must still include `AskUserQuestion` (and `Skill` / `Agent` when those features are on).
 - Set `settingSources` to include `'user'` so the SDK loads `~/.claude/settings.json` and user-scope skills/auth (`apiKeyHelper`, OAuth). Include `'project'` to pick up the workspace's `.claude/` and `CLAUDE.md`.
-- Capture `session_id` from the init/result messages to support `resume`. Persist `total_cost_usd` and token usage from result messages — these feed the analysis engine.
+- Capture `session_id` from the init/result messages to support `resume` / fork. Persist `total_cost_usd` and token usage from result messages — these feed the analysis engine.
 - `bypassPermissions` additionally requires `allowDangerouslySkipPermissions: true`; surface this clearly in the UI and never make it a silent default.
 
 ## How to consume the backlog

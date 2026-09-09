@@ -2,7 +2,7 @@
 
 This is the implementation backlog for claude-assistant, broken into phases. It is written to be **consumed by AI agents**: every task is small, self-contained, and has an explicit contract.
 
-Read [`../../AGENTS.md`](../../AGENTS.md), [`../product-spec.md`](../product-spec.md), [`../architecture.md`](../architecture.md), and [`../decisions.md`](../decisions.md) first. Those are binding.
+Read [`../../AGENTS.md`](../../AGENTS.md), [`../product-spec.md`](../product-spec.md), [`../architecture.md`](../architecture.md), [`../decisions.md`](../decisions.md), and [`../chat-feature-catalog.md`](../chat-feature-catalog.md) first. Those are binding. Session chat has no “v1 subset”: implement every catalog row.
 
 ## How to work the backlog
 
@@ -40,7 +40,7 @@ Every task uses this structure:
 | 4 | [`phase-04-agent-runner.md`](phase-04-agent-runner.md) | Claude Agent SDK runner, sessions, PRs | 1, 2, 3 |
 | 5 | [`phase-05-frontend-foundation.md`](phase-05-frontend-foundation.md) | Vite/React/MUI v9, theming, API client | 2 |
 | 6 | [`phase-06-workspaces-profiles-ui.md`](phase-06-workspaces-profiles-ui.md) | Workspaces + agent profiles UI | 3, 5 |
-| 7 | [`phase-07-sessions-ui.md`](phase-07-sessions-ui.md) | Create/run/list sessions, live view | 4, 6 |
+| 7 | [`phase-07-sessions-ui.md`](phase-07-sessions-ui.md) | Reusable chat (full SDK catalog), sessions list | 4, 6 |
 | 8 | [`phase-08-analysis-improvements.md`](phase-08-analysis-improvements.md) | Analysis engine + staged improvements | 4, 7 |
 | 9 | [`phase-09-polish-e2e.md`](phase-09-polish-e2e.md) | Polish, empty/error states, e2e, docs | 8 |
 
@@ -59,7 +59,7 @@ flowchart LR
   P2 --> P5[P5 Frontend foundation]
   P3 --> P6[P6 Workspaces + Profiles UI]
   P5 --> P6
-  P4 --> P7[P7 Sessions UI]
+  P4 --> P7[P7 Sessions chat catalog]
   P6 --> P7
   P4 --> P8[P8 Analysis + Improvements]
   P7 --> P8
@@ -68,4 +68,4 @@ flowchart LR
 
 ## Definition of done for the whole product
 
-The product is complete when a user can, entirely from the UI: add a GitHub workspace, manage agent profiles, run a session that opens a real PR with live streaming, and select past sessions to produce categorized, correctly-scoped staged improvements that can be reviewed as diffs and applied or discarded — with light/dark themes working and the Vitest suite green.
+The product is complete when a user can, entirely from the UI: add a GitHub workspace, manage agent profiles, run a session in the reusable chat that implements [`../chat-feature-catalog.md`](../chat-feature-catalog.md) (including permissions, multi-question AskUserQuestion, and browser restart), open a real PR, and select past sessions to produce categorized, correctly-scoped staged improvements that can be reviewed as diffs and applied or discarded — with light/dark themes working and the Vitest suite green.

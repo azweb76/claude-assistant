@@ -4,7 +4,7 @@
 
 **Depends on:** Phase 0
 
-**Exit criteria:** Drizzle schema compiles; `pnpm db:generate` and `pnpm db:migrate` work against a SQLite file; repositories for all entities are implemented and unit-tested against a fresh temp DB.
+**Exit criteria:** Drizzle schema compiles; `pnpm db:generate` and `pnpm db:migrate` work against a SQLite file; repositories for all entities (including `pending_user_inputs`) are implemented and unit-tested against a fresh temp DB.
 
 Reference: data model sketch in [`../architecture.md`](../architecture.md#3-data-model-drizzle-sketch).
 
@@ -45,7 +45,7 @@ Reference: data model sketch in [`../architecture.md`](../architecture.md#3-data
 - **Goal:** Persist sessions and their append-only transcripts.
 - **Depends on:** P1-T2, P1-T3.
 - **Files:** `apps/server/src/db/schema/sessions.ts`, `apps/server/src/db/schema/sessionMessages.ts`, `apps/server/src/db/repositories/sessions.ts`, `apps/server/src/db/repositories/sessionMessages.ts`, `packages/shared/src/schemas/session.ts`, tests.
-- **Implementation notes:** `sessions` includes `profileSnapshot` (frozen JSON), `status` enum (`pending|running|succeeded|failed|canceled`), `sdkSessionId`, `branchName`, `prUrl`, usage columns, timestamps, FKs to workspace and profile. `session_messages` is append-only with a monotonic `seq` per session and `type`/`subtype`/`payload`. Provide an `appendMessage` that assigns the next `seq` and a `listMessages` ordered by `seq`.
+- **Implementation notes:** `sessions` includes `profileSnapshot` (frozen JSON), `status` enum (`pending|running|succeeded|failed|canceled`), `sdkSessionId`, `branchName`, `prUrl`, usage columns, timestamps, FKs to workspace and profile. `session_messages` is append-only with a monotonic `seq` per session and `type`/`subtype`/`payload` storing the raw SDK message. Provide an `appendMessage` that assigns the next `seq` and a `listMessages` ordered by `seq`. `seq` is the SSE resume cursor for browser restart. Persist every catalog `SDKMessage` type except replaceable `stream_event` partials (those may be omitted from durable storage once the completed assistant message is appended).
 - **Acceptance criteria:** Sessions CRUD + status transitions persist; messages append in order; listing returns ordered transcript; FKs enforced.
 - **Test requirements:** Vitest tests for session lifecycle fields, ordered message append/list, and FK enforcement.
 - **Done definition:** Tests green; schema migrated.
@@ -70,10 +70,20 @@ Reference: data model sketch in [`../architecture.md`](../architecture.md#3-data
 - **Test requirements:** Vitest tests for get/set/defaults for each known key.
 - **Done definition:** Tests green; schema migrated.
 
+## P1-T8 — Pending user-input rows
+
+- **Goal:** Persist blocking SDK prompts so a restarted browser can answer them.
+- **Depends on:** P1-T4.
+- **Files:** `apps/server/src/db/schema/pendingUserInputs.ts`, `apps/server/src/db/repositories/pendingUserInputs.ts`, `packages/shared/src/schemas/pendingUserInput.ts`, tests.
+- **Implementation notes:** Table `pending_user_inputs`: `id`, `sessionId`, `requestId` (unique), `toolUseId`, `kind` enum (`permission|ask_user_question|mcp_elicitation|exit_plan_mode|role_picker|other`), `toolName`, `payload` JSON, `status` (`pending|resolved|canceled`), timestamps. Repository: insert pending, list pending by session, resolve/cancel idempotently by `requestId`. Session GET in later phases joins these rows. Do not add a session status `awaiting_input`; session stays `running`.
+- **Acceptance criteria:** Insert/list/resolve/cancel work; duplicate `requestId` insert is rejected or treated as the same row; listing pending excludes resolved/canceled.
+- **Test requirements:** Vitest: lifecycle, uniqueness of `requestId`, list-pending filter, FK to sessions.
+- **Done definition:** Tests green; schema migrated.
+
 ## P1-T7 — Migrations, seed, and idempotent bootstrap
 
 - **Goal:** Generate initial migrations and seed built-in agent profiles + default settings.
-- **Depends on:** P1-T2, P1-T3, P1-T5, P1-T6.
+- **Depends on:** P1-T2, P1-T3, P1-T5, P1-T6, P1-T8.
 - **Files:** `apps/server/drizzle/**` (generated), `apps/server/src/db/seed.ts`, `apps/server/src/db/migrate.ts`, tests.
 - **Implementation notes:** `pnpm db:generate` produces migrations; `pnpm db:migrate` applies them. Seed a conservative "Plan-first" profile and a "Build + PR" profile, plus default settings. Seeding must be idempotent (safe to run repeatedly).
 - **Acceptance criteria:** A fresh DB migrates cleanly; seeding twice does not duplicate rows; built-in profiles and defaults present after bootstrap.

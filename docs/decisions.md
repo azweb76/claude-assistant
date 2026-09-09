@@ -123,3 +123,20 @@ Status legend: **Accepted** · Proposed · Superseded.
 **Decision.** Deliver `README.md`, `AGENTS.md`/`CLAUDE.md`, `docs/product-spec.md`, `docs/architecture.md`, this ADR log, and a phased `docs/backlog/` where every task has an explicit contract (goal, dependencies, file targets, acceptance criteria, test requirements, done definition). No application code in this iteration.
 
 **Consequences.** AI agents can implement phases with minimal ambiguity. The backlog and ADRs are the source of truth; code phases must conform to them.
+
+---
+
+## ADR-0011 — Interactive session chat over SSE (full SDK catalog)
+
+**Status:** Accepted
+
+**Context.** The first backlog treated a session as a one-way streaming transcript: start a prompt, watch messages, optionally follow up after the run finished. The Claude Agent SDK is an interactive product: `canUseTool` (permissions and `AskUserQuestion`), MCP elicitation, plan-mode exit, slash commands, attachments, subagents, tasks, thinking, compaction, rewind, mid-session model/permission changes, and dozens of `SDKMessage` variants. A transcript viewer that only handles assistant text and generic tool rows is not Claude. Browser reload is a normal event and must not drop a paused permission or a multi-question prompt.
+
+**Decision.**
+
+1. Session UX is a **reusable chat component** that implements every row of [`chat-feature-catalog.md`](chat-feature-catalog.md). Permissions and clarifying questions are mandatory **and** so is every other catalog row (tools, messages, Query controls, MCP, plan/worktree/tasks, slash commands, attachments). There is no “v1 subset.”
+2. The runner uses **streaming-input** `query()`, holds the live `Query` in a registry, and persists every `SDKMessage` (except replaceable token `stream_event`s) plus `pending_user_inputs` for any blocking callback.
+3. Live updates remain **SSE** (ADR-0006 is not superseded). Client → server replies use REST (`POST .../user-input`, `POST .../messages`, `POST .../interrupt`, `POST .../controls`). SSE `id` is the message `seq` so a restarted browser hydrates from REST and tails from `afterSeq`. Pending prompts are re-emitted on subscribe.
+4. `canUseTool` (and elicitation) **must wait** for the HTTP reply. The fake SDK in tests must block the same way.
+
+**Consequences.** Phase 1 stores pending inputs; Phase 2 extends the event union; Phase 4 implements the bridge and Query controls; Phase 5 hydrates+reconnects; Phase 7 builds the chat against the catalog with fixtures per id. Analysis (Phase 8) stays a separate progress stream; it does not reuse the session chat.
