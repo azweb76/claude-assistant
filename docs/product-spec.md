@@ -36,8 +36,8 @@ The product has two loops:
 flowchart LR
   a[User enters GitHub repo] --> b[App verifies access via gh]
   b --> c[Clone repo to managed dir using local git creds]
-  c --> d[Persist workspace: name, remote, default branch, local path]
-  d --> e[Workspace appears in list, ready for sessions]
+  c --> d["Persist workspace: name, remote, default branch, local path"]
+  d --> e["Workspace appears in list, ready for sessions"]
 ```
 
 - Input: repository reference (e.g. `owner/name` or URL).
@@ -61,9 +61,9 @@ flowchart TD
   d --> e["Runner calls query prompt, options mapped from profile"]
   e --> f[Stream messages to UI via SSE + persist each message]
   f --> g{Run outcome}
-  g -->|success + changes| h[Commit, push, open PR via gh]
-  g -->|no changes / error / canceled| i[Record final status, no PR]
-  h --> j[Session shows PR link, cost, token usage]
+  g -->|"success + changes"| h["Commit, push, open PR via gh"]
+  g -->|"no changes / error / canceled"| i["Record final status, no PR"]
+  h --> j["Session shows PR link, cost, token usage"]
   i --> j
 ```
 
@@ -81,12 +81,12 @@ flowchart TD
   b --> c[User triggers Analyze]
   c --> d[Analyzer builds a review prompt from selected transcripts + usage]
   d --> e[A Claude review agent identifies waste/inefficiency]
-  e --> f[Findings categorized: instructions / project skills+agents / user skills+agents]
-  f --> g[Engine produces staged edits with target file, scope, and diff]
+  e --> f["Findings categorized: instructions / project skills+agents / user skills+agents"]
+  f --> g["Engine produces staged edits with target file, scope, and diff"]
   g --> h[Review UI shows each staged improvement as a diff]
   h --> i{Per improvement}
   i -->|Apply| j[Write edit to target file at correct scope]
-  i -->|Discard| k[Mark discarded, no file change]
+  i -->|Discard| k["Mark discarded, no file change"]
 ```
 
 - Analysis is **manual** and **explicit**: nothing is analyzed or applied automatically.

@@ -6,14 +6,14 @@ This document describes the target system design. It is the reference future pha
 
 ```mermaid
 flowchart LR
-  subgraph web [Web UI: Vite + React + MUI v9]
+  subgraph web [Web UI - Vite + React + MUI v9]
     workspacesUI[Workspaces]
     profilesUI[Agent Profiles]
     sessionsUI[Sessions + Live Run]
     analysisUI[Analysis + Staged Improvements]
     settingsUI[Settings]
   end
-  subgraph server [Fastify backend, ESM]
+  subgraph server [Fastify backend - ESM]
     api[REST + SSE API]
     settingsSvc[Settings service]
     runner[Agent Runner]
@@ -215,14 +215,14 @@ Constraints:
 ```mermaid
 flowchart TD
   a[Selected sessions] --> b[Load transcripts + usage from DB]
-  b --> c[Build review prompt: transcripts, tool-call stats, cost/turns]
+  b --> c["Build review prompt: transcripts, tool-call stats, cost/turns"]
   c --> d[Run Claude review agent]
   d --> e[Parse structured findings]
   e --> f{Categorize + route scope}
-  f -->|generic capability| user[user_skill_agent -> ~/.claude]
-  f -->|project-specific| proj[project_skill_agent -> repo/.claude]
-  f -->|instructions| instr[claude_instructions -> CLAUDE.md / user instructions]
-  user --> g[Create staged_improvement + diff]
+  f -->|generic capability| user["user_skill_agent to ~/.claude"]
+  f -->|project-specific| proj["project_skill_agent to repo/.claude"]
+  f -->|instructions| instr["claude_instructions to CLAUDE.md / user instructions"]
+  user --> g["Create staged_improvement + diff"]
   proj --> g
   instr --> g
   g --> h[Persist as status=staged]
