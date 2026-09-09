@@ -10,15 +10,20 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
-    "db:generate": "echo 'db:generate will be implemented in Phase 1'",
-    "db:migrate": "echo 'db:migrate will be implemented in Phase 1'"
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "tsx src/db/migrate-cli.ts",
+    "db:bootstrap": "tsx src/db/bootstrap-cli.ts"
   },
   "dependencies": {
     "@claude-assistant/shared": "workspace:*",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.2",
     "fastify": "^5.2.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22.13.10",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "vitest": "^3.0.9"

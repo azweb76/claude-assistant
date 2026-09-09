@@ -14,5 +14,6 @@ coverage/
 *.log
 .turbo/
 .vite/
+*.tsbuildinfo
 apps/server/data/
 .claude-assistant/
