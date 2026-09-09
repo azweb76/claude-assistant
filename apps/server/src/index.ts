@@ -4,7 +4,7 @@ import { buildApp } from './app.js';
 import { createDb, defaultDbPath } from './db/client.js';
 import { migrateDb } from './db/migrate.js';
 import { seedDb } from './db/seed.js';
-import { createSystemClock } from './lib/deps.js';
+import { buildDependencies } from './lib/buildDeps.js';
 
 const port = Number(process.env.PORT ?? 3001);
 const host = process.env.HOST ?? '127.0.0.1';
@@ -15,20 +15,21 @@ const { db, sqlite, close } = createDb({ path: dbPath });
 migrateDb(db);
 await seedDb(db);
 
-const app = await buildApp({
-  deps: {
-    db,
-    closeDb: close,
-    clock: createSystemClock(),
-    pingDb: () => {
-      try {
-        sqlite.prepare('select 1').get();
-        return true;
-      } catch {
-        return false;
-      }
-    },
+const deps = buildDependencies({
+  db,
+  closeDb: close,
+  pingDb: () => {
+    try {
+      sqlite.prepare('select 1').get();
+      return true;
+    } catch {
+      return false;
+    }
   },
+});
+
+const app = await buildApp({
+  deps,
   logger: true,
 });
 

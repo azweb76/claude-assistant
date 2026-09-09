@@ -1,11 +1,13 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
-import { APP_NAME } from '@claude-assistant/shared';
+import { APP_NAME, type StreamEvent } from '@claude-assistant/shared';
 import type { Dependencies } from './lib/deps.js';
 import { AppError, NotFoundError, ValidationError } from './lib/errors.js';
 import { openSse, streamAsyncIterable } from './lib/sse.js';
 import { registerSettingsRoutes } from './routes/settings.js';
-import type { StreamEvent } from '@claude-assistant/shared';
+import { registerWorkspaceRoutes } from './routes/workspaces.js';
+import { registerProfileRoutes } from './routes/profiles.js';
+import { registerSessionRoutes } from './routes/sessions.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -53,7 +55,6 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     };
   });
 
-  // Test/demo SSE route used by unit tests and as a contract sample.
   app.get('/api/_test/sse', async (request, reply) => {
     const controller = openSse(request, reply, { heartbeatMs: 60_000 });
     async function* events(): AsyncGenerator<StreamEvent> {
@@ -74,6 +75,9 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
 
   await registerSettingsRoutes(app);
+  await registerWorkspaceRoutes(app);
+  await registerProfileRoutes(app);
+  await registerSessionRoutes(app);
 
   return app;
 }
